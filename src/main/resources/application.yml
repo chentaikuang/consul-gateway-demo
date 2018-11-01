@@ -1,0 +1,75 @@
+server:
+  port: 8888
+spring:
+  application:
+    name: my-gateway-demo
+  cloud:
+    gateway:
+    #服务发现
+      discovery:
+        locator:
+          enabled: true
+        default-filters:
+
+      #路由规则
+      routes:
+            - id: first_route_test                      #网关路由标识ID
+              #uri: http://t.gateway.com:8888/test/demo
+#             #uri: http://www.baidu.com/
+              uri: http://localhost:8888/test/demo      #网关路由到指定应用url路径
+              predicates:
+                - Path=/other/**
+
+            - id: second_route_test                     #网关路由标识ID
+              uri: forward:/timeHandler/curTime         #转发至本地url
+              predicates:
+                - Path=/forward/**
+
+            #服务权重分配测试
+            - id: service_weight_v1
+              uri: http://localhost:8888/service/v1
+              predicates:
+              - Path=/ver
+              - Weight=service_weight, 5
+            - id: service_weight_v2
+              uri: http://localhost:8888/service/v2
+              predicates:
+              - Path=/ver
+              - Weight=service_weight, 95
+
+            - id: rate_limiter_test
+              #uri: lb://localhost:8888
+              uri: forward:/rateLimiterHandler/bool
+              predicates:
+              - Path=/rateLimiter/**
+              filters:
+              - name: RequestRateLimiter
+                args:
+                  #允许用户每秒处理多少个请求
+                  redis-rate-limiter.replenishRate: 5
+                  #令牌桶的容量，允许在一秒钟内完成的最大请求数
+                  redis-rate-limiter.burstCapacity: 20
+                  key-resolver: "#{@ipKeyResolver}"
+                  #key-resolver: "#{@userKeyResolver}"
+
+            - id: provider_route_test
+              uri: http://localhost:8887/test/provider?tips=from_gw_route
+              predicates:
+                - Path=/provider/**
+    consul:
+      host: 127.0.0.1
+      port: 8500
+  redis:
+    host: localhost
+    port: 6379
+  profiles:
+    active: dev
+
+
+#日志Level
+logging:
+  level:
+    org.springframework.cloud.gateway: trace
+#    org.springframework.http.server.reactive: debug
+#    org.springframework.web.reactive: debug
+#    reactor.ipc.netty: debug
